@@ -18,6 +18,15 @@ the keycap rendering — only the _engine_ differs.
 Carbon's dispatcher enters through an explicit `@MainActor` callback. Press and release handlers
 return `OSStatus` synchronously, preserving event order and hold-to-talk release handling.
 
+Carbon hotkeys are shared: every registrant of a chord hears it, macOS included. A chord macOS answers
+itself — any enabled entry in Keyboard ▸ Keyboard Shortcuts, read with `CopySymbolicHotKeys` — is
+therefore registered exclusively, so its system action does not run beside Tinycast's. Bound to
+⌃⌘Space, Search Emoji & Symbols otherwise opened Character Viewer too, which took focus from the paste.
+Arrows and F-keys carry fn in that list but not in a recording made without Globe, so both spellings
+are claimed. An exclusive registration fails while another app holds the chord, and falls back to a
+shared one. Each read costs milliseconds, so `HotKeyCenter` takes it once and refreshes it when a
+recording ends. Conflict detection still covers only Tinycast's own bindings.
+
 ## Invariants
 
 - **Hotkeys persist as JSON strings under `hotkey.<action>` UserDefaults keys**, and
@@ -36,7 +45,7 @@ return `OSStatus` synchronously, preserving event order and hold-to-talk release
   synthesised one.
 - `KeyShortcut`'s hand-written `init(from:)` is a correctness seam, not a format one: it routes every
   decode through the initializer that masks device modifier bits off.
-- **The modifier-only detectors stay Foundation-only and pure** for `hotkey-test`, with the clock
+- **The modifier-only detectors stay Foundation-only and pure** for `HotKeyTests`, with the clock
   injected as a parameter. Every `CGEvent` call lives in
   `Service/ModifierTapMonitor.swift`, which is listen-only, installs *only* while a modifier-only
   shortcut is bound, and never prompts for Accessibility.
@@ -152,7 +161,7 @@ register a modifier-only shortcut at all, so this is a separate engine that meet
 at `HotKeyBinding`.
 
 `DoubleTapDetector` is the recognizer: Foundation-only, pure, and clock-injected (`now` is a caller-
-supplied monotonic timestamp), so `Tests/hotkey-test.swift` drives it without an event tap. A **tap**
+supplied monotonic timestamp), so `Tests/HotKeyTests.swift` drives it without an event tap. A **tap**
 is a press that starts from no modifiers held, keeps exactly one of the four held with no `fn`
 alongside, sees no key press or mouse click, and is released within `maxHold` (250 ms). A
 **double-tap** is a second tap of the same modifier
@@ -297,7 +306,7 @@ that rule. A combo or a cancelled hold never runs its Quick Press action.
 
 ### Conflicts and diagnostics
 
-`HyperKeyConflictPolicy` is the pure rule, tested by `hyper-key-test`; `HyperKeyConflictScanner` reads the
+`HyperKeyConflictPolicy` is the pure rule, tested by `HyperKeyTests`; `HyperKeyConflictScanner` reads the
 machine for it.
 
 - **Known apps.** Hyperkey and Superkey bring a Hyper Key of their own and are **blocking**: while one
